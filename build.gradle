@@ -1,0 +1,151 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.2.5'
+    id 'io.spring.dependency-management' version '1.1.5'
+    id 'org.flywaydb.flyway' version '10.12.0'
+    id 'nu.studer.jooq' version '9.0'
+}
+
+group = 'com.converse'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '17'
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencyManagement {
+    imports {
+        mavenBom 'software.amazon.awssdk:bom:2.25.27'
+        mavenBom 'io.github.resilience4j:resilience4j-bom:2.2.0'
+    }
+}
+
+dependencies {
+    // Spring Boot
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+
+    // Resilience4j
+    implementation 'io.github.resilience4j:resilience4j-spring-boot3'
+    implementation 'io.github.resilience4j:resilience4j-retry'
+    implementation 'io.github.resilience4j:resilience4j-circuitbreaker'
+
+    // jOOQ
+    implementation 'org.springframework.boot:spring-boot-starter-jooq'
+    jooqGenerator 'com.mysql:mysql-connector-j:8.3.0'
+    implementation 'org.jooq:jooq:3.19.7'
+
+    // Flyway
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-mysql'
+
+    // MySQL
+    runtimeOnly 'com.mysql:mysql-connector-j:8.3.0'
+
+    // AWS Bedrock
+    implementation 'software.amazon.awssdk:bedrockruntime'
+
+    // Jackson
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
+    // Micrometer Prometheus
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // Test
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:mysql'
+    testImplementation 'org.testcontainers:elasticsearch'
+    testImplementation 'com.redis:testcontainers-redis:2.2.2'
+    testImplementation 'org.awaitility:awaitility:4.2.1'
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+}
+
+def dbUrl  = System.getenv('DB_URL')  ?: 'jdbc:mysql://localhost:3306/converse_disposition?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false'
+def dbUser = System.getenv('DB_USER') ?: 'root'
+def dbPass = System.getenv('DB_PASS') ?: 'root'
+
+flyway {
+    url      = dbUrl
+    user     = dbUser
+    password = dbPass
+    locations = ['classpath:db/migration']
+}
+
+jooq {
+    version = '3.19.7'
+    configurations {
+        main {
+            generationTool {
+                jdbc {
+                    driver   = 'com.mysql.cj.jdbc.Driver'
+                    url      = dbUrl
+                    user     = dbUser
+                    password = dbPass
+                }
+                generator {
+                    name = 'org.jooq.codegen.DefaultGenerator'
+                    database {
+                        name            = 'org.jooq.meta.mysql.MySQLDatabase'
+                        inputSchema     = 'converse_disposition'
+                        excludes        = 'flyway_schema_history'
+                        includes        = '.*'
+                    }
+                    generate {
+                        deprecated        = false
+                        records           = true
+                        immutablePojos    = false
+                        fluentSetters     = true
+                    }
+                    target {
+                        packageName = 'com.converse.disposition.jooq.generated'
+                        directory   = 'build/generated-src/jooq/main'
+                    }
+                }
+            }
+        }
+    }
+}
+
+sourceSets {
+    main {
+        java {
+            // build/generated-src/jooq/main is used when generateJooq runs against live MySQL.
+            // src/generated/jooq contains pre-generated sources for offline compilation.
+            srcDirs 'src/main/java', 'src/generated/jooq', 'build/generated-src/jooq/main'
+        }
+    }
+}
+
+// Disable generateJooq from running automatically — sources are pre-generated.
+// Run ./gradlew generateJooq explicitly when MySQL is available.
+tasks.named('generateJooq') {
+    enabled = false
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+dependencyManagement {
+    imports {
+        mavenBom 'org.testcontainers:testcontainers-bom:1.19.8'
+    }
+}

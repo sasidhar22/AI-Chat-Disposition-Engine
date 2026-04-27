@@ -1,0 +1,16 @@
+# Gradle
+.gradle/
+build/
+!build/generated-src/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Secrets
+.env
+*.env
+
+# OS
+.DS_Store
