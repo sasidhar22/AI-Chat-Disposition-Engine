@@ -1,4 +1,4 @@
-# AI Chat Disposition Engine
+# AI Chat Disposition Engine - Backend focused
 
 > Async Spring Boot service that generates structured summaries of closed Converse chat sessions using Claude (AWS Bedrock), persists them to MySQL, caches in Redis, and delivers in real time to the agent's Converse view and the CRM lead timeline.
 
